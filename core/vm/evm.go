@@ -472,6 +472,16 @@ func (c *codeAndHash) Hash() common.Hash {
 
 // create creates a new contract using code as deployment code.
 func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64, value *uint256.Int, address common.Address, typ OpCode) (ret []byte, createAddress common.Address, leftOverGas uint64, err error) {
+	if evm.Config.CreateAddressOverride != nil {
+		address = *evm.Config.CreateAddressOverride
+	}
+	if evm.Config.CreationCodeOverrides != nil {
+		if code, ok := evm.Config.CreationCodeOverrides[address]; ok {
+			codeAndHash.code = code
+			codeAndHash.hash = common.Hash{}
+			_ = codeAndHash.Hash()
+		}
+	}
 	if evm.Config.Tracer != nil {
 		evm.captureBegin(evm.depth, typ, caller.Address(), address, codeAndHash.code, gas, value.ToBig())
 		defer func(startGas uint64) {
@@ -497,20 +507,22 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	if evm.chainRules.IsEIP2929 {
 		evm.StateDB.AddAddressToAccessList(address)
 	}
-	// Ensure there's no existing contract already at the designated address.
-	// Account is regarded as existent if any of these three conditions is met:
-	// - the nonce is non-zero
-	// - the code is non-empty
-	// - the storage is non-empty
-	contractHash := evm.StateDB.GetCodeHash(address)
-	storageRoot := evm.StateDB.GetStorageRoot(address)
-	if evm.StateDB.GetNonce(address) != 0 ||
-		(contractHash != (common.Hash{}) && contractHash != types.EmptyCodeHash) || // non-empty code
-		(storageRoot != (common.Hash{}) && storageRoot != types.EmptyRootHash) { // non-empty storage
-		if evm.Config.Tracer != nil && evm.Config.Tracer.OnGasChange != nil {
-			evm.Config.Tracer.OnGasChange(gas, 0, tracing.GasChangeCallFailedExecution)
+	if evm.Config.CreateAddressOverride == nil {
+		// Ensure there's no existing contract already at the designated address.
+		// Account is regarded as existent if any of these three conditions is met:
+		// - the nonce is non-zero
+		// - the code is non-empty
+		// - the storage is non-empty
+		contractHash := evm.StateDB.GetCodeHash(address)
+		storageRoot := evm.StateDB.GetStorageRoot(address)
+		if evm.StateDB.GetNonce(address) != 0 ||
+			(contractHash != (common.Hash{}) && contractHash != types.EmptyCodeHash) || // non-empty code
+			(storageRoot != (common.Hash{}) && storageRoot != types.EmptyRootHash) { // non-empty storage
+			if evm.Config.Tracer != nil && evm.Config.Tracer.OnGasChange != nil {
+				evm.Config.Tracer.OnGasChange(gas, 0, tracing.GasChangeCallFailedExecution)
+			}
+			return nil, common.Address{}, 0, ErrContractAddressCollision
 		}
-		return nil, common.Address{}, 0, ErrContractAddressCollision
 	}
 	// Create a new account on the state only if the object was not present.
 	// It might be possible the contract code is deployed to a pre-existent
@@ -548,7 +560,7 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	}
 
 	// Check whether the max code size has been exceeded, assign err if the case.
-	if err == nil && evm.chainRules.IsEIP158 && len(ret) > params.MaxCodeSize {
+	if err == nil && !evm.Config.IgnoreCodeSizeLimit && evm.chainRules.IsEIP158 && len(ret) > params.MaxCodeSize {
 		err = ErrMaxCodeSizeExceeded
 	}
 
@@ -564,6 +576,9 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	if err == nil {
 		if !evm.chainRules.IsEIP4762 {
 			createDataGas := uint64(len(ret)) * params.CreateDataGas
+			if evm.Config.IgnoreGas {
+				createDataGas = 0
+			}
 			if !contract.UseGas(createDataGas, evm.Config.Tracer, tracing.GasChangeCallCodeStorage) {
 				err = ErrCodeStoreOutOfGas
 			}
