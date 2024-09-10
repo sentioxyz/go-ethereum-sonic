@@ -219,6 +219,9 @@ func (t *sentioTracer) captureEnd(output []byte, usedGas uint64, err error, reve
 }
 
 func (t *sentioTracer) CaptureEnter(depth int, typByte byte, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
+	if depth == 0 {
+		return
+	}
 	// Skip if tracing was interrupted
 	if atomic.LoadUint32(&t.interrupt) > 0 {
 		return
@@ -357,7 +360,7 @@ func (t *sentioTracer) CaptureState(pc uint64, opByte byte, gas, cost uint64, sc
 		call.Value = (*hexutil.Big)(stackBack(2).ToBig())
 
 		v := call.Value.ToInt()
-		if v.BitLen() != 0 && !t.env.StateDB.GetBalance(from).Lt(uint256.MustFromBig(v)) {
+		if v.BitLen() != 0 && t.env.StateDB.GetBalance(from).Lt(uint256.MustFromBig(v)) {
 			if call.Error == "" {
 				call.Error = "insufficient funds for transfer"
 			}
