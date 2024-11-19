@@ -1223,7 +1223,7 @@ func (api *API) traceBundle(ctx context.Context, bundle *Bundle, simulateContext
 			return nil, err
 		}
 	}
-	
+
 	// Execute the trace
 	for idx, args := range bundle.Transactions {
 		// Execute the trace
@@ -1256,7 +1256,7 @@ func (api *API) traceBundle(ctx context.Context, bundle *Bundle, simulateContext
 			return result, err
 		}
 		result = append(result, r)
-		// todo check
+		// @long, do we need this?
 		statedb.Finalise(api.backend.ChainConfig().IsEIP158(block.Number()))
 	}
 	return result, nil
