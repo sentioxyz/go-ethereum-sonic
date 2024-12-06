@@ -34,7 +34,7 @@ import (
 //go:generate go run github.com/fjl/gencodec -type account -field-override accountMarshaling -out gen_account_json.go
 
 func init() {
-	tracers.DefaultDirectory.Register("sentioPrestateTracer", newSentioPrestateTracer, false)
+	tracers.DefaultDirectory.Register("sentioPrestateTracer", NewSentioPrestateTracer, false)
 }
 
 type state = map[common.Address]*account
@@ -76,7 +76,7 @@ type prestateTracerConfig struct {
 	DiffMode bool `json:"diffMode"` // If true, this tracer will return state modifications
 }
 
-func newSentioPrestateTracer(ctx *tracers.Context, cfg json.RawMessage) (*tracers.Tracer, error) {
+func NewSentioPrestateTracer(ctx *tracers.Context, cfg json.RawMessage) (*tracers.Tracer, error) {
 	var config prestateTracerConfig
 	if cfg != nil {
 		if err := json.Unmarshal(cfg, &config); err != nil {
