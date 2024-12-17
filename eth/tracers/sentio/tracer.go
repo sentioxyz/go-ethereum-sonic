@@ -690,6 +690,9 @@ func (f *Trace) processError(output []byte, err error) {
 func copyMemory(m []byte, offset uint64, size uint64) hexutil.Bytes {
 	// it's important to get copy
 	res := make([]byte, size)
+	if size == 0 {
+		return res
+	}
 	copy(res, m[offset:offset+size])
 	return res
 }
