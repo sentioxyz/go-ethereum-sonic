@@ -466,6 +466,9 @@ func (st *stateTransition) execute() (*ExecutionResult, error) {
 
 	// Check clauses 4-5, subtract intrinsic gas if everything is correct
 	gas, err := IntrinsicGas(msg.Data, msg.AccessList, msg.SetCodeAuthorizations, contractCreation, rules.IsHomestead, rules.IsIstanbul, rules.IsShanghai)
+	if st.evm.Config.IgnoreGas {
+		goto ignoreGas
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -487,6 +490,8 @@ func (st *stateTransition) execute() (*ExecutionResult, error) {
 	}
 	st.gasRemaining -= gas
 
+ignoreGas:
+
 	if rules.IsEIP4762 {
 		st.evm.AccessEvents.AddTxOrigin(msg.From)
 
@@ -506,6 +511,9 @@ func (st *stateTransition) execute() (*ExecutionResult, error) {
 		}
 	}
 
+	if st.evm.Config.IgnoreCodeSizeLimit {
+		goto ignoreCodeSizeLimit
+	}
 	// Check whether the init code size has been exceeded.
 	if contractCreation {
 		if err := vm.CheckMaxInitCodeSize(&rules, uint64(len(msg.Data)), st.evm.Config.MaxInitCodeSize); err != nil {
@@ -513,6 +521,7 @@ func (st *stateTransition) execute() (*ExecutionResult, error) {
 		}
 	}
 
+ignoreCodeSizeLimit:
 	// Execute the preparatory steps for state transition which includes:
 	// - prepare accessList(post-berlin)
 	// - reset transient storage(eip 1153)

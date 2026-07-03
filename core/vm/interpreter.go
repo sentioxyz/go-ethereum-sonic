@@ -21,6 +21,7 @@ import (
 	gomath "math"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/holiman/uint256"
@@ -57,6 +58,11 @@ type Config struct {
 
 	MaxCodeSize     *int // Maximum code size allowed for a contract. If nil, the default params value is used.
 	MaxInitCodeSize *int // Maximum init code size allowed for a contract. If nil, the default params value is used.
+	
+	CreationCodeOverrides map[common.Address]hexutil.Bytes
+	CreateAddressOverride *common.Address
+	IgnoreGas             bool
+	IgnoreCodeSizeLimit   bool
 }
 
 // ScopeContext contains the things that are per-call, such as stack and memory,
